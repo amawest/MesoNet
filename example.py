@@ -1,12 +1,16 @@
+
+#%%
+
 import numpy as np
 from classifiers import *
 from pipeline import *
-
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
+#%%
+
 # 1 - Load the model and its pretrained weights
-classifier = Meso4()
-classifier.load('weights/Meso4_DF.h5')
+classifier = MesoInception4()
+classifier.load('weights/MesoInception_DF.h5')
 
 # 2 - Minimial image generator
 # We did use it to read and compute the prediction by batchs on test videos
@@ -14,22 +18,56 @@ classifier.load('weights/Meso4_DF.h5')
 
 dataGenerator = ImageDataGenerator(rescale=1./255)
 generator = dataGenerator.flow_from_directory(
-        'test_images',
+        'deepfake_database/validation',
         target_size=(256, 256),
         batch_size=1,
         class_mode='binary',
         subset='training')
 
-# 3 - Predict
-X, y = generator.next()
-print('Predicted :', classifier.predict(X), '\nReal class :', y)
+#%%
 
-# 4 - Prediction for a video dataset
+# 3 - Calculate All Predictions
+predicted = []
+real = []
+for i in range(0,7103):
+    X, y = generator.next()
+    predicted.append(classifier.predict(X))
+    real.append(y)
 
-classifier.load('weights/Meso4_F2F.h5')
+#%%
+
+# 4 - Classify Predictions 
+predict = [1  if x >.3 else 0 for x in predicted]
+
+# 5 - Calculate Accuracy
+print(sum(1 for x,y in zip(real,predict) if x == y)) # 6309
+print(sum(1 for x,y in zip(real,predict) if x == y) / len(real)) # 88.81
+
+# result: 92.65% accuracy (correctly identified photos)
+
+# 6 - Confusion Matrix
+TP = (sum(1 for x,y in zip(real,predict) if x == y and x == 1)) # TP
+TN = (sum(1 for x,y in zip(real,predict) if x == y and x == 0)) # TN
+FP = (sum(1 for x,y in zip(real,predict) if x != y and x == 0)) # FP
+FN = (sum(1 for x,y in zip(real,predict) if x != y and x == 1)) # FN
+
+print(f'\n        Actual T   Actual F \n Pred.T {TP}       {FP} \n Pred.F {FN}        {TN}')
+
+
+#%% Notes
 
 '''
+# 3 - Predict
+#X, y = generator.next()
+#print('Predicted :', classifier.predict(X), '\nReal class :', y)
+'''
+
+'''
+# 4 - Prediction for a video dataset
+classifier.load('weights/Meso4_F2F.h5')
 predictions = compute_accuracy(classifier, 'test_videos')
 for video_name in predictions:
     print('`{}` video class prediction :'.format(video_name), predictions[video_name][0])
 '''
+
+#%%
